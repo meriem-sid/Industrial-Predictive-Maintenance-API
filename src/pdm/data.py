@@ -6,6 +6,14 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 
+COLUMNS = (
+    ["unit", "cycle"]
+    + [f"setting_{i}" for i in range(1, 4)]
+    + [f"sensor_{i}" for i in range(1, 22)]
+)
+
+VALID_SUBSETS = {"FD001", "FD002", "FD003", "FD004"}
+
 
 def load_cmapss(subset: str = "FD001", split: str = "train") -> pd.DataFrame:
     """Load a raw C-MAPSS file with named columns.
@@ -14,7 +22,7 @@ def load_cmapss(subset: str = "FD001", split: str = "train") -> pd.DataFrame:
     Returns one row per (unit, cycle).
     """
 
-    if subset not in {"FD001", "FD002", "FD003", "FD004"}:
+    if subset not in VALID_SUBSETS:
         raise ValueError(
             f"Invalid subset: {subset}. Choose FD001, FD002, FD003, or FD004."
         )
@@ -28,16 +36,13 @@ def load_cmapss(subset: str = "FD001", split: str = "train") -> pd.DataFrame:
 
     df = pd.read_csv(path, sep=r"\s+", header=None)
 
-    n_sensors = df.shape[1] - 5
 
-    if n_sensors < 1:
-        raise ValueError(f"Unexpected number of columns in {path}")
+    if df.shape[1] != len(COLUMNS):
+        raise ValueError(
+            f"Expected {len(COLUMNS)} columns, found {df.shape[1]} in {path}"
+        )
 
-    df.columns = (
-        ["unit", "cycle"]
-        + [f"setting_{i}" for i in range(1, 4)]
-        + [f"sensor_{i}" for i in range(1, n_sensors + 1)]
-    )
+    df.columns = COLUMNS
 
     return df
   
@@ -45,7 +50,7 @@ def load_cmapss(subset: str = "FD001", split: str = "train") -> pd.DataFrame:
 def load_rul(subset: str = "FD001") -> pd.DataFrame:
     """Load true RUL values for test engines."""
 
-    if subset not in {"FD001", "FD002", "FD003", "FD004"}:
+    if subset not in VALID_SUBSETS:
         raise ValueError(
             f"Invalid subset: {subset}. Choose FD001, FD002, FD003, or FD004."
         )
@@ -53,7 +58,8 @@ def load_rul(subset: str = "FD001") -> pd.DataFrame:
     path = DATA_DIR /"raw"/"CMAPSSData"/ f"RUL_{subset}.txt"
 
     rul = pd.read_csv(path, sep=r"\s+", header=None, names=["true_rul"])
-
+    
+   # Assumption: RUL values follow test-engine order, with units numbered from 1.
     rul.insert(0, "unit", range(1, len(rul) + 1))
 
     return rul
